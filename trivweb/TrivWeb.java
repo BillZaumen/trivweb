@@ -17,11 +17,20 @@ public class TrivWeb {
 
 	String ts = System.getenv("TRACE");
 	boolean trace = (ts == null)? false: ts.equalsIgnoreCase("true");
+	String dm = System.getenv("DARKMODE");
+	boolean darkmode = (dm == null)? false: dm.equalsIgnoreCase("true");
 
 	InetSocketAddress saddr = new InetSocketAddress("0.0.0.0", port);
 
 	EmbeddedWebServer ews = new
-	    EmbeddedWebServer(saddr.getAddress(), port, 48, 10, null);
+	    EmbeddedWebServer(saddr.getAddress(), port, 48, 10);
+
+	String color = darkmode? "white": "black";
+	String bgcolor = darkmode? "rgb(10,10,25)": "lightgray";
+	String linkColor = darkmode? "rgb(65,225,128)": null;
+	String visitedColor = darkmode? "rgb(65,164,128)": null;
+
+	ews.setRootColors(color, bgcolor, linkColor, visitedColor);
 
 	if (target.startsWith("http://")
 	    || target.startsWith("https://")
@@ -32,7 +41,10 @@ public class TrivWeb {
 	} else {
 	    File f = new File(target);
 	    File dir = f.isDirectory()? f: f.getParentFile();
-	    ews.add("/", DirWebMap.class, dir, null, true, (f == dir), true);
+	    ews.add("/", DirWebMap.class,
+		    new DirWebMap.Config(dir, color, bgcolor,
+					 linkColor, visitedColor),
+		    null, true, (f == dir), true);
 	    if (f != dir) {
 		WebMap map = ews.getWebMap("/");
 		map.addWelcome(f.getName());

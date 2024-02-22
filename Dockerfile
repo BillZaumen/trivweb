@@ -1,27 +1,24 @@
-FROM eclipse-temurin:11.0.18_10-jre-jammy
+FROM eclipse-temurin:17-jdk-alpine AS build
 
-RUN apt update && apt upgrade -y
-RUN apt-get -y install apt-utils binutils
-
-#
-# Add the repository for libbzev packages and webnail-server.
-# sed is used because setup.sh uses sudo to get root access and
-# sudo is not supported by eclipse-temurin:11.0.18_10-jre-jammy.
-# Similary lsb_release is not supported but /etc/os-release exists.
-#
-RUN . /etc/os-release && \
-    curl https://billzaumen.github.io/bzdev/setup.sh | \
-    sed s/'sudo -k'// | sed s/sudo// \
-    | sed s/'`lsb_release -c -s`'/$VERSION_CODENAME/ | sh
-
-RUN apt-get -y install --no-install-recommends  \
-    libbzdev-base-java libbzdev-ejws-java
-
+RUN mkdir /usr/share/bzdev
+COPY tmp/libbzdev-base.jar /usr/share/bzdev
+COPY tmp/libbzdev-ejws.jar /usr/share/bzdev
 COPY trivweb.jar /usr/share/bzdev
 
+RUN jlink --module-path /usr/share/bzdev --add-modules trivweb \
+    --output /opt/trivweb --compress=2 --no-header-files --no-man-pages
+
+RUN rm -rf /opt/java/openjdk /usr/share/bzdev
+RUN strip /opt/trivweb/lib/*.so
+
+FROM scratch
+
+COPY --from=build / /
+
+ENV PATH=/opt/trivweb/bin:$PATH
 
 EXPOSE 80/tcp
 
 WORKDIR usr/app
 
-CMD ["java", "-p", "/usr/share/bzdev", "-m", "trivweb" ]
+CMD [ "java", "-m", "trivweb" ]

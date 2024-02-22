@@ -1,4 +1,4 @@
-VERSION = 1.0
+VERSION = 2.1
 
 #
 # The variable TARGET must be set when docker is started
@@ -20,40 +20,49 @@ trivweb.jar: $(JFILES) modinfo/module-info.java
 		--main-class=trivweb/TrivWeb -C mods/trivweb .
 
 docker: trivweb.jar
+	mkdir -p tmp
+	cp /usr/share/bzdev/libbzdev-base.jar tmp
+	cp /usr/share/bzdev/libbzdev-ejws.jar tmp
 	docker build --tag wtzbzdev/trivweb:$(VERSION) \
 		--tag wtzbzdev/trivweb:latest .
+	rm -r tmp
 
 docker-nocache: trivweb.jar
+	mkdir -p tmp
+	ln -s /usr/share/bzdev/libbzdev-base.jar tmp
+	ln -s /usr/share/bzdev/libbzdev-ejws.jar tmp
 	docker build --no-cache=true --tag wtzbzdev/trivweb:$(VERSION) \
 		--tag wtzbzdev/trivweb:latest .
+	rm -r tmp
 
 docker-release:
 	docker push wtzbzdev/trivweb:$(VERSION)
 	docker push wtzbzdev/trivweb:latest
 
 start:
-	if [ -f $(TARGET) ] ; then \
+	if [ -f $(TARGET) -o -d $(TARGET) ] ; then \
 	docker run --publish 80:80 --detach --name trivweb \
 		-v `dirname $(TARGET)`:/usr/app/:ro \
+		--env DARKMODE=true \
 		--env TARGET=/usr/app/`basename $(TARGET)` \
 		wtzbzdev/trivweb ; \
 	else \
 	docker run --publish 80:80 --detach --name trivweb \
-		--env TARGET=$(TARGET) \
+		--env DARKMODE=true --env TARGET=$(TARGET) \
 		wtzbzdev/trivweb ; \
 	fi
 
 start-traced:
-	if [ -f $(TARGET) ] ; then \
-	docker run --publish 80:80 --detach --name trivweb \
+	if [ -f $(TARGET) -o -d $(TARGET) ] ; then \
+	docker run --publish 80:80 -it --name trivweb \
 		-v `dirname $(TARGET)`:/usr/app/:ro \
 		--env TARGET=/usr/app/`basename $(TARGET)` \
-		--env TRACE=true \
+		--env DARKMODE=true --env TRACE=true \
 		wtzbzdev/trivweb ; \
 	else \
-	docker run --publish 80:80 --detach --name trivweb \
+	docker run --publish 80:80 -it --name trivweb \
 		--env TARGET=$(TARGET) \
-		--env TRACE=true \
+		--env DARKMODE=true --env TRACE=true \
 		wtzbzdev/trivweb ; \
 	fi
 
@@ -63,21 +72,5 @@ stop:
 
 
 test:
-	TRACE=true TARGET=$(TARGET) PORT=8080 java \
+	TRACE=true DARKMODE=true TARGET=$(TARGET) PORT=8080 java \
 	-p /usr/share/bzdev:. -m trivweb
-
-dtest:
-	if [ -f $(TARGET) ] ; then \
-	docker run --publish 80:80 --detach --name trivweb \
-		-v `dirname $(TARGET)`:/usr/app/:ro \
-		--env TARGET=/usr/app/`basename $(TARGET)` \
-		--env TRACE=true \
-		-it \
-		wtzbzdev/trivweb:$(VERSION) ; \
-	else \
-	docker run --publish 80:80 --detach --name trivweb \
-		--env TARGET=$(TARGET) \
-		--env TRACE=true \
-		-it \
-		wtzbzdev/trivweb:$(VERSION) ; \
-	fi
